@@ -1,0 +1,20 @@
+# --- Python Compiled Files ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Environment & Dependencies ---
+venv/
+env/
+.venv/
+
+# --- Project Specific Output (Prevent leaking data to GitHub) ---
+*.txt
+!requirements.txt
+*.log
+*.zip
+*.png
+
+# --- OS Generated Files ---
+.DS_Store
+Thumbs.db
