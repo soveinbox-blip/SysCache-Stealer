@@ -36,6 +36,7 @@ SysCache-Stealer/
 |
 +-- windows_payload/
 |   +-- keylogger_vittima.py
+|   +-- persistence.py
 |
 +-- kali_c2_server/
     +-- server.py
@@ -55,6 +56,11 @@ SysCache-Stealer/
 - **Silent Screenshots:** Takes a screenshot every 60 seconds.
 - **Automated Exfiltration:** Every 5 minutes, zips screenshots and sends all logs to the C2 server via HTTP POST.
 - **Smart Login Detection (Trigger):** Monitors browser history every 30 seconds. If a new URL matching login patterns (e.g., `login`, `signin`) is detected, it instantly triggers an exfiltration.
+- **Persistence (HKCU Run Key):** On first execution, the payload copies itself to `%LOCALAPPDATA%\SysCache\svchost.py` and registers a `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry (`SysCacheSvc`) so it relaunches automatically at every user logon — without requiring Administrator privileges.
+- **Console-less Relaunch:** Uses `pythonw.exe` when available so the persistent instance runs without a visible console window.
+- **Idempotent Install:** Detects an existing Run entry and refreshes the staged copy instead of creating duplicates.
+- **Heartbeat Beacon:** Sends a one-time `heartbeat_<HOSTNAME>.txt` to the C2 on each launch, reporting hostname, user, timestamp, and persistence status.
+- **Clean Uninstall:** `persistence.uninstall()` removes both the Run key and the staged copy for post-demo cleanup.
 
 ---
 
@@ -113,6 +119,9 @@ python keylogger_vittima.py
 | **Browser Database Protection** | Restrict access to SQLite history files while the browser is running. |
 | **Network Segmentation** | Egress filtering on the firewall to block unauthorized HTTP POST requests. |
 | **CLI Logging** | Monitor Windows Event Logs for `netsh wlan show profile key=clear`. |
+| **Run Key Monitoring** | Alert on new `HKCU\...\Run` values — a classic user-mode persistence location. Sysmon Event ID 13/14 or EDR autorun telemetry covers this. |
+| **%LOCALAPPDATA% Execution** | Flag `pythonw.exe` (or any interpreter) launching scripts from `%LOCALAPPDATA%` — legitimate software rarely stages interpreters there. |
+| **Autoruns Auditing** | Periodic auditing via Autoruns or `Get-CimInstance Win32_StartupCommand` catches masqueraded names like `svchost.py`. |
 
 ---
 
