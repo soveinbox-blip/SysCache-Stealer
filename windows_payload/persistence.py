@@ -32,6 +32,11 @@ def _stage_payload():
     staged  = os.path.abspath(STAGED_SCRIPT)
     if current.lower() != staged.lower():
         shutil.copy2(current, staged)
+    # Also copy persistence.py so the staged script can import it
+    this_module = os.path.abspath(__file__)
+    staged_module = os.path.join(STAGING_DIR, "persistence.py")
+    if this_module.lower() != staged_module.lower():
+        shutil.copy2(this_module, staged_module)
     return staged
 
 
@@ -83,8 +88,9 @@ def uninstall():
             winreg.DeleteValue(key, APP_NAME)
     except (FileNotFoundError, OSError):
         pass
-    try:
-        if os.path.exists(STAGED_SCRIPT):
-            os.remove(STAGED_SCRIPT)
-    except OSError:
-        pass
+    for path in [STAGED_SCRIPT, os.path.join(STAGING_DIR, "persistence.py")]:
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError:
+            pass
